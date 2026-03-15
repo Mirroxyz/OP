@@ -1,0 +1,9 @@
+{
+  "name": "generator-lib",
+  "version": "1.0.0",
+  "description": "Infinite generator functions and a timeout-bounded iterator consumer",
+  "main": "index.js",
+  "author": "Mirroxyz <maxym.prasol@ukr.net>",
+  "license": "MIT",
+  "keywords": ["generator", "iterator", "round-robin", "infinite"]
+}

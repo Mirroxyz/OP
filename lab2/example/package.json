@@ -1,0 +1,11 @@
+{
+  "name": "generator-lib-example",
+  "version": "1.0.0",
+  "description": "Usage examples for generator-lib",
+  "main": "index.js",
+  "author": "Mirroxyz <maxym.prasol@ukr.net>",
+  "license": "MIT",
+  "dependencies": {
+    "generator-lib": "file:../generator-lib"
+  }
+}
