@@ -1,0 +1,20 @@
+{
+  "name": "memoization-lib",
+  "version": "1.0.0",
+  "description": "Advanced memoization library with multiple cache eviction strategies",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "node test.js",
+    "example": "node example.js"
+  },
+  "author": "Mirroxyz <maxym.prasol@ukr.net>",
+  "license": "MIT",
+  "keywords": [
+    "memoization",
+    "cache",
+    "lru",
+    "lfu",
+    "performance"
+  ]
+}
