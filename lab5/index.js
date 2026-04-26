@@ -1,71 +1,41 @@
 function asyncMapCallback(array, callback, done, options = {}) {
-  const { onError = () => {}, signal } = options;
+  const { signal } = options;
   let index = 0;
   const results = [];
   let active = true;
 
+  const abort = () => {
+    active = false;
+    done(new DOMException('Aborted', 'AbortError'), null);
+  };
+
   const processNext = () => {
     if (!active) return;
-
-    if (signal?.aborted) {
-      active = false;
-      const error = new DOMException('Aborted', 'AbortError');
-      onError(error);
-      done(error, null);
-      return;
-    }
-
+    if (signal?.aborted) return abort();
     if (index >= array.length) {
       active = false;
-      done(null, results);
-      return;
+      return done(null, results);
     }
 
-    const currentIndex = index;
-    index++;
-
+    const currentIndex = index++;
     try {
       callback(array[currentIndex], currentIndex, array, (err, value) => {
         if (!active) return;
-
-        if (signal?.aborted) {
-          active = false;
-          const error = new DOMException('Aborted', 'AbortError');
-          onError(error);
-          done(error, null);
-          return;
-        }
-
+        if (signal?.aborted) return abort();
         if (err) {
           active = false;
-          onError(err);
-          done(err, null);
-          return;
+          return done(err, null);
         }
-
         results[currentIndex] = value;
         processNext();
       });
     } catch (err) {
       active = false;
-      onError(err);
       done(err, null);
     }
   };
 
-  const abortListener = () => {
-    if (active) {
-      active = false;
-      const error = new DOMException('Aborted', 'AbortError');
-      onError(error);
-      done(error, null);
-    }
-  };
-
-  if (signal) {
-    signal.addEventListener('abort', abortListener);
-  }
-
+  if (signal) signal.addEventListener('abort', abort);
   processNext();
 }
 
@@ -82,42 +52,30 @@ function asyncMapPromise(array, mapper, options = {}) {
     const results = [];
     let active = true;
 
-    const abortListener = () => {
+    const abort = () => {
       active = false;
-      signal.removeEventListener('abort', abortListener);
+      if (signal) signal.removeEventListener('abort', abort);
       reject(new DOMException('Aborted', 'AbortError'));
     };
 
-    if (signal) {
-      signal.addEventListener('abort', abortListener);
-    }
+    if (signal) signal.addEventListener('abort', abort);
 
     const processNext = async () => {
       while (index < array.length && active) {
-        const currentIndex = index;
-        index++;
-
+        const currentIndex = index++;
         try {
-          if (signal?.aborted) {
-            active = false;
-            signal.removeEventListener('abort', abortListener);
-            reject(new DOMException('Aborted', 'AbortError'));
-            return;
-          }
-
-          const value = await mapper(array[currentIndex], currentIndex, array);
-          results[currentIndex] = value;
+          if (signal?.aborted) return abort();
+          results[currentIndex] = await mapper(array[currentIndex], currentIndex, array);
         } catch (err) {
           active = false;
-          if (signal) signal.removeEventListener('abort', abortListener);
-          reject(err);
-          return;
+          if (signal) signal.removeEventListener('abort', abort);
+          return reject(err);
         }
       }
 
       if (active) {
         active = false;
-        if (signal) signal.removeEventListener('abort', abortListener);
+        if (signal) signal.removeEventListener('abort', abort);
         resolve(results);
       }
     };

@@ -2,13 +2,11 @@ import { asyncMapCallback, asyncMapPromise } from './index.js';
 
 console.log('Async Map Examples\n');
 
-console.log('--- Callback-based Example ---');
+console.log('--- Callback-based ---');
 asyncMapCallback(
-  ['apple', 'banana', 'cherry'],
-  (item, index, array, callback) => {
-    setTimeout(() => {
-      callback(null, `${item} (${index + 1})`);
-    }, 100);
+  [1, 2, 3],
+  (item, index, array, cb) => {
+    setTimeout(() => cb(null, item * 10), 50);
   },
   (err, results) => {
     if (err) {
@@ -16,111 +14,60 @@ asyncMapCallback(
     } else {
       console.log('Results:', results);
     }
-    demoPromiseVersion();
+    demoPromise();
   }
 );
 
-async function demoPromiseVersion() {
-  console.log('\n--- Promise-based Example (async/await) ---');
+async function demoPromise() {
+  console.log('\n--- Promise with async/await ---');
   try {
-    const results = await asyncMapPromise([1, 2, 3, 4, 5], async (num, index) => {
-      await new Promise((resolve) => setTimeout(resolve, 100));
+    const results = await asyncMapPromise([1, 2, 3, 4], async (num) => {
+      await new Promise((r) => setTimeout(r, 50));
       return num * num;
     });
-    console.log('Squared numbers:', results);
+    console.log('Results:', results);
   } catch (err) {
     console.error('Error:', err.message);
   }
-
   demoCancellation();
 }
 
 async function demoCancellation() {
-  console.log('\n--- Cancellation Example ---');
+  console.log('\n--- Cancellation with AbortController ---');
   const controller = new AbortController();
 
-  const promise = asyncMapPromise([1, 2, 3, 4, 5], async (num) => {
-    await new Promise((resolve) => setTimeout(resolve, 200));
-    return num * 10;
-  }, { signal: controller.signal });
-
-  setTimeout(() => {
-    console.log('Aborting after 300ms...');
-    controller.abort();
-  }, 300);
-
   try {
+    const promise = asyncMapPromise([1, 2, 3, 4, 5], async (num) => {
+      await new Promise((r) => setTimeout(r, 100));
+      return num * 2;
+    }, { signal: controller.signal });
+    setTimeout(() => controller.abort(), 150);
     await promise;
   } catch (err) {
-    if (err.name === 'AbortError') {
-      console.log('Operation was cancelled');
-    } else {
-      console.error('Error:', err.message);
-    }
+    console.log(`Aborted: ${err.name}`);
   }
 
-  demoCallbackError();
+  demoError();
 }
 
-function demoCallbackError() {
-  console.log('\n--- Error Handling (Callback) ---');
+function demoError() {
+  console.log('\n--- Error Handling ---');
   asyncMapCallback(
     [1, 2, 3],
-    (item, index, array, callback) => {
+    (item, index, array, cb) => {
       if (item === 2) {
-        callback(new Error('Processing failed for item 2'), null);
+        cb(new Error('Failed at item 2'), null);
       } else {
-        callback(null, item * 100);
+        cb(null, item * 5);
       }
     },
     (err, results) => {
       if (err) {
-        console.log('Error caught:', err.message);
+        console.log(`Error: ${err.message}`);
       } else {
         console.log('Results:', results);
       }
-
-      demoPromiseError();
     }
   );
 }
 
-async function demoPromiseError() {
-  console.log('\n--- Error Handling (Promise) ---');
-  try {
-    const results = await asyncMapPromise(['a', 'b', 'c'], async (item) => {
-      if (item === 'b') {
-        throw new Error('Cannot process b');
-      }
-      return item.toUpperCase();
-    });
-    console.log('Results:', results);
-  } catch (err) {
-    console.log('Error caught:', err.message);
-  }
-
-  demoAdvanced();
-}
-
-async function demoAdvanced() {
-  console.log('\n--- Advanced: API calls simulation ---');
-  const userIds = [1, 2, 3];
-
-  try {
-    const users = await asyncMapPromise(userIds, async (id, index) => {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      return {
-        id,
-        name: `User ${id}`,
-        email: `user${id}@example.com`,
-      };
-    });
-
-    console.log('Fetched users:');
-    users.forEach((user) => {
-      console.log(`  ${user.name} (${user.email})`);
-    });
-  } catch (err) {
-    console.error('Failed to fetch users:', err.message);
-  }
-}
