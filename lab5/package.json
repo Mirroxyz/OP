@@ -1,0 +1,21 @@
+{
+  "name": "async-map-lib",
+  "version": "1.0.0",
+  "description": "Async array map function with callback, promise and cancellation support",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "node test.js",
+    "example": "node example.js"
+  },
+  "author": "Mirroxyz <maxym.prasol@ukr.net>",
+  "license": "MIT",
+  "keywords": [
+    "async",
+    "map",
+    "promise",
+    "callback",
+    "abort",
+    "cancellation"
+  ]
+}
