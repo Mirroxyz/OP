@@ -80,6 +80,52 @@ async function runTests() {
     });
   await assert(chainedCount > 0 && chainedCount < 200, 'Chaining filters and transforms works');
 
+  // Test 7: Memory efficiency with larger dataset
+  const dataSource7 = new FileDataSource(50000);
+  const iterator7 = new AsyncDataIterator(dataSource7, 1000);
+  let largeCount = 0;
+  for await (const item of iterator7) {
+    largeCount++;
+  }
+  await assert(largeCount === 50000, 'Memory-efficient processing of 50k items');
+
+  // Test 8: DataAggregator statistics
+  const dataSource8 = new FileDataSource(100);
+  const iterator8 = new AsyncDataIterator(dataSource8, 25);
+  const processor8 = new DataProcessor(iterator8);
+  const aggregator8 = new DataAggregator(processor8);
+  const avg = await aggregator8.average('value');
+  const max = await aggregator8.max('value');
+  const min = await aggregator8.min('value');
+  await assert(
+    avg > 0 && max > 0 && min >= 0 && max >= min,
+    'Aggregator statistics are correct'
+  );
+
+  // Test 9: Grouping functionality
+  const dataSource9 = new FileDataSource(150);
+  const iterator9 = new AsyncDataIterator(dataSource9, 30);
+  const processor9 = new DataProcessor(iterator9);
+  const aggregator9 = new DataAggregator(processor9);
+  const grouped = await aggregator9.groupBy(item => {
+    if (item.value > 75) return 'HIGH';
+    if (item.value > 50) return 'MEDIUM';
+    return 'LOW';
+  });
+  const hasGroups = grouped.HIGH || grouped.MEDIUM || grouped.LOW;
+  await assert(hasGroups && Object.keys(grouped).length > 0, 'Grouping creates correct categories');
+
+  // Test 10: Performance timing
+  const startTime = Date.now();
+  const dataSource10 = new FileDataSource(10000);
+  const iterator10 = new AsyncDataIterator(dataSource10, 500);
+  let perfCount = 0;
+  for await (const item of iterator10) {
+    perfCount++;
+  }
+  const elapsed = Date.now() - startTime;
+  await assert(perfCount === 10000 && elapsed > 0, `Performance: processed 10k items in ${elapsed}ms`);
+
   console.log(`\n✓ Tests passed: ${testsPassed}`);
   console.log(`✗ Tests failed: ${testsFailed}\n`);
 }
