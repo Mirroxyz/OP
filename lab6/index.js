@@ -65,4 +65,97 @@ class FileDataSource {
   }
 }
 
-export { AsyncDataIterator, FileDataSource };
+/**
+ * DataProcessor - обробляє потік даних з трансформацією та фільтруванням
+ */
+class DataProcessor {
+  constructor(dataIterator) {
+    this.dataIterator = dataIterator;
+    this.filters = [];
+    this.transformers = [];
+  }
+
+  /**
+   * Додає фільтр до pipeline
+   */
+  filter(predicate) {
+    this.filters.push(predicate);
+    return this;
+  }
+
+  /**
+   * Додає трансформацію до pipeline
+   */
+  transform(mapper) {
+    this.transformers.push(mapper);
+    return this;
+  }
+
+  /**
+   * Обробляє весь потік з accumulator функцією
+   */
+  async reduce(accumulator, initialValue) {
+    let result = initialValue;
+
+    for await (const item of this.dataIterator) {
+      // Застосовуємо фільтри
+      let shouldInclude = true;
+      for (const filter of this.filters) {
+        if (!filter(item)) {
+          shouldInclude = false;
+          break;
+        }
+      }
+
+      if (!shouldInclude) continue;
+
+      // Застосовуємо трансформації
+      let transformedItem = item;
+      for (const transformer of this.transformers) {
+        transformedItem = transformer(transformedItem);
+      }
+
+      // Застосовуємо accumulator
+      result = accumulator(result, transformedItem);
+    }
+
+    return result;
+  }
+
+  /**
+   * Застосовує функцію до кожного елемента потоку
+   */
+  async forEach(callback) {
+    for await (const item of this.dataIterator) {
+      // Застосовуємо фільтри
+      let shouldInclude = true;
+      for (const filter of this.filters) {
+        if (!filter(item)) {
+          shouldInclude = false;
+          break;
+        }
+      }
+
+      if (!shouldInclude) continue;
+
+      // Застосовуємо трансформації
+      let transformedItem = item;
+      for (const transformer of this.transformers) {
+        transformedItem = transformer(transformedItem);
+      }
+
+      await callback(transformedItem);
+    }
+  }
+
+  /**
+   * Збирає елементи потоку в масив (обережно - для великих потоків!)
+   */
+  async collect() {
+    const result = [];
+    await this.forEach(item => result.push(item));
+    return result;
+  }
+}
+
+export { AsyncDataIterator, FileDataSource, DataProcessor };
