@@ -158,4 +158,82 @@ class DataProcessor {
   }
 }
 
-export { AsyncDataIterator, FileDataSource, DataProcessor };
+/**
+ * DataAggregator - збирає статистику на основі потоку даних
+ */
+class DataAggregator {
+  constructor(dataProcessor) {
+    this.dataProcessor = dataProcessor;
+  }
+
+  /**
+   * Обчислює суму значень у полі
+   */
+  async sum(field) {
+    return this.dataProcessor.reduce(
+      (acc, item) => acc + (item[field] || 0),
+      0
+    );
+  }
+
+  /**
+   * Обчислює середнє значення
+   */
+  async average(field) {
+    let sum = 0;
+    let count = 0;
+
+    await this.dataProcessor.forEach(item => {
+      sum += item[field] || 0;
+      count++;
+    });
+
+    return count > 0 ? sum / count : 0;
+  }
+
+  /**
+   * Знаходить максимальне значення
+   */
+  async max(field) {
+    return this.dataProcessor.reduce(
+      (acc, item) => Math.max(acc, item[field] || -Infinity),
+      -Infinity
+    );
+  }
+
+  /**
+   * Знаходить мінімальне значення
+   */
+  async min(field) {
+    return this.dataProcessor.reduce(
+      (acc, item) => Math.min(acc, item[field] || Infinity),
+      Infinity
+    );
+  }
+
+  /**
+   * Групує елементи за ключем
+   */
+  async groupBy(keyExtractor) {
+    return this.dataProcessor.reduce(
+      (acc, item) => {
+        const key = keyExtractor(item);
+        if (!acc[key]) {
+          acc[key] = [];
+        }
+        acc[key].push(item);
+        return acc;
+      },
+      {}
+    );
+  }
+
+  /**
+   * Підраховує кількість елементів
+   */
+  async count() {
+    return this.dataProcessor.reduce((acc) => acc + 1, 0);
+  }
+}
+
+export { AsyncDataIterator, FileDataSource, DataProcessor, DataAggregator };
