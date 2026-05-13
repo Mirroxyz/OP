@@ -13,10 +13,16 @@ class BiDirectionalPriorityQueue {
     this.nodeToMaxIndex = new Map();
     this.nodeToMinIndex = new Map();
     this.operationCounter = 0;
+    this.oldestNode = null;
   }
 
   enqueue(item, priority) {
     const node = new Node(item, priority, this.operationCounter++);
+    
+    // Track oldest node (first added)
+    if (this.oldestNode === null) {
+      this.oldestNode = node;
+    }
     
     // Add to max-heap (for 'highest')
     const maxIndex = this.maxHeap.length;
@@ -42,8 +48,20 @@ class BiDirectionalPriorityQueue {
       return this.minHeap[0].item;
     }
     
-    // For other modes, use linear search
-    return this._find(mode).item;
+    if (mode === 'oldest') {
+      return this.oldestNode.item;
+    }
+    
+    if (mode === 'newest') {
+      // Newest is the most recently added, which has max order
+      let newest = this.maxHeap[0];
+      for (let i = 1; i < this.maxHeap.length; i++) {
+        if (this.maxHeap[i].order > newest.order) {
+          newest = this.maxHeap[i];
+        }
+      }
+      return newest.item;
+    }
   }
 
   dequeue(mode = 'highest') {
@@ -55,10 +73,17 @@ class BiDirectionalPriorityQueue {
       nodeToRemove = this.maxHeap[0];
     } else if (mode === 'lowest') {
       nodeToRemove = this.minHeap[0];
-    } else {
-      // For other modes, use linear search
-      const index = this._findIndex(mode);
-      nodeToRemove = this.maxHeap[index];
+    } else if (mode === 'oldest') {
+      nodeToRemove = this.oldestNode;
+    } else if (mode === 'newest') {
+      // Find newest (max order) in max-heap
+      let newest = this.maxHeap[0];
+      for (let i = 1; i < this.maxHeap.length; i++) {
+        if (this.maxHeap[i].order > newest.order) {
+          newest = this.maxHeap[i];
+        }
+      }
+      nodeToRemove = newest;
     }
 
     const item = nodeToRemove.item;
@@ -77,6 +102,13 @@ class BiDirectionalPriorityQueue {
     
     this.nodeToMaxIndex.delete(nodeToRemove);
     this.nodeToMinIndex.delete(nodeToRemove);
+    
+    // Update oldest node if it was removed
+    if (this.oldestNode === nodeToRemove) {
+      this.oldestNode = this.maxHeap.length > 0 
+        ? this.maxHeap.reduce((min, node) => node.order < min.order ? node : min)
+        : null;
+    }
 
     return item;
   }
@@ -87,20 +119,6 @@ class BiDirectionalPriorityQueue {
 
   isEmpty() {
     return this.maxHeap.length === 0;
-  }
-
-  _findIndex(mode) {
-    let index = 0;
-    for (let i = 1; i < this.maxHeap.length; i++) {
-      const compare = mode === 'oldest' ? this.maxHeap[i].order < this.maxHeap[index].order :
-                      mode === 'newest' ? this.maxHeap[i].order > this.maxHeap[index].order : false;
-      if (compare) index = i;
-    }
-    return index;
-  }
-
-  _find(mode) {
-    return this.maxHeap[this._findIndex(mode)];
   }
 
   _removeFromMaxHeap(index) {
