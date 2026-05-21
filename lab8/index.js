@@ -176,4 +176,22 @@ class AuthProxy {
   }
 }
 
-export { AuthProxy, AuthStrategy };
+/**
+ * API Key Authentication Strategy
+ * Injects static API key into requests
+ */
+class ApiKeyAuth extends AuthStrategy {
+  constructor(apiKey, headerName = 'X-API-Key') {
+    super();
+    this.apiKey = apiKey;
+    this.headerName = headerName;
+  }
+
+  async getAuthHeaders() {
+    return {
+      [this.headerName]: this.apiKey
+    };
+  }
+}
+
+export { AuthProxy, AuthStrategy, ApiKeyAuth };
