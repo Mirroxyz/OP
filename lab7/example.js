@@ -184,6 +184,104 @@ function example5_EntityCommunication() {
 }
 
 /**
+ * Приклад 6: Pipeline обробки з множинними трансформаціями
+ */
+function example6_Pipeline() {
+  console.log('=== Example 6: Multi-stage Processing Pipeline ===\n');
+
+  const dataStream = new Subject();
+
+  console.log('Setting up processing pipeline...\n');
+
+  // Обробка: filter → map → tap → filter again
+  dataStream
+    .filter((x) => x > 0)
+    .tap((x) => console.log(`  [1] Input: ${x}`))
+    .map((x) => x * 2)
+    .tap((x) => console.log(`  [2] After doubling: ${x}`))
+    .filter((x) => x > 10)
+    .tap((x) => console.log(`  [3] Passed filter (> 10): ${x}`))
+    .subscribe((result) => {
+      console.log(`  ✓ Final result: ${result}\n`);
+    });
+
+  console.log('Emitting values: [-2, 3, 5, 8, 10]\n');
+  [-2, 3, 5, 8, 10].forEach((n) => dataStream.next(n));
+  
+  console.log();
+}
+
+/**
+ * Приклад 7: Обробка помилок і завершення
+ */
+function example7_ErrorHandling() {
+  console.log('=== Example 7: Error Handling & Completion ===\n');
+
+  const riskyOperation = new Observable((observer) => {
+    observer.next('Start processing...');
+    observer.next('Processing step 1');
+    observer.next('Processing step 2');
+    // Помилка!
+    observer.error(new Error('Something went wrong!'));
+    observer.next('This will not be called');
+  });
+
+  console.log('Observable with error handling:\n');
+  riskyOperation.subscribe({
+    next: (value) => console.log(`  ✓ ${value}`),
+    error: (err) => console.log(`  ✗ Error caught: ${err.message}`),
+    complete: () => console.log(`  ✓ Completed`),
+  });
+
+  console.log('\nObservable that completes successfully:\n');
+
+  const successOperation = new Observable((observer) => {
+    observer.next('Task 1');
+    observer.next('Task 2');
+    observer.next('Task 3');
+    observer.complete();
+  });
+
+  successOperation.subscribe({
+    next: (value) => console.log(`  ✓ ${value}`),
+    error: (err) => console.log(`  ✗ Error: ${err.message}`),
+    complete: () => console.log(`  ✓ All tasks completed!`),
+  });
+
+  console.log();
+}
+
+/**
+ * Приклад 8: Комбіновані Subject з EventEmitter
+ */
+function example8_CombinedApproach() {
+  console.log('=== Example 8: Combined EventEmitter & Subject ===\n');
+
+  // EventEmitter для синхронних подій
+  const eventEmitter = new EventEmitter();
+
+  // Subject для асинхронних потоків
+  const asyncData = new Subject();
+
+  console.log('EventEmitter: Synchronized events\n');
+  eventEmitter.on('sync-event', (data) => {
+    console.log(`  [Sync] Received: ${data}`);
+  });
+  eventEmitter.emit('sync-event', 'Immediate action');
+
+  console.log('\nSubject: Async reactive stream\n');
+
+  asyncData.subscribe((value) => {
+    console.log(`  [Async] Received: ${value}`);
+  });
+
+  asyncData.next('Delayed reaction 1');
+  asyncData.next('Delayed reaction 2');
+
+  console.log();
+}
+
+/**
  * Запуск всіх прикладів
  */
 function runAllExamples() {
@@ -195,6 +293,9 @@ function runAllExamples() {
   example3_BehaviorSubject();
   example4_Observable();
   example5_EntityCommunication();
+  example6_Pipeline();
+  example7_ErrorHandling();
+  example8_CombinedApproach();
 
   console.log('═'.repeat(60));
   console.log('\n✅ All examples completed!\n');
