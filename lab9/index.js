@@ -242,4 +242,53 @@ class LogDecorator {
   }
 }
 
-export { Logger, LogLevel, LogDecorator };
+/**
+ * Conditional Logger
+ * Only logs based on specified conditions
+ */
+class ConditionalLogger extends Logger {
+  constructor(level = LogLevel.INFO) {
+    super(level);
+    this.conditions = [];
+  }
+
+  /**
+   * Add logging condition
+   */
+  addCondition(predicate) {
+    this.conditions.push(predicate);
+  }
+
+  /**
+   * Clear all conditions
+   */
+  clearConditions() {
+    this.conditions = [];
+  }
+
+  /**
+   * Check if should log based on conditions
+   */
+  shouldLog(level, message, data) {
+    if (this.conditions.length === 0) {
+      return level >= this.level;
+    }
+
+    return this.conditions.every(predicate => 
+      predicate(level, message, data)
+    );
+  }
+
+  /**
+   * Override log to check conditions
+   */
+  log(level, message, data = {}, formatter = 'default') {
+    if (!this.shouldLog(level, message, data)) {
+      return;
+    }
+
+    super.log(level, message, data, formatter);
+  }
+}
+
+export { Logger, LogLevel, LogDecorator, ConditionalLogger };
