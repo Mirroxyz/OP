@@ -1,0 +1,25 @@
+{
+  "name": "lab8-authentication-proxy",
+  "version": "1.0.0",
+  "description": "Authentication Proxy for API Service with multiple auth strategies and request monitoring",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node example.js",
+    "test": "node test.js"
+  },
+  "keywords": [
+    "authentication",
+    "proxy",
+    "oauth",
+    "jwt",
+    "api-key",
+    "http-client",
+    "middleware"
+  ],
+  "author": "Mirroxyz",
+  "license": "MIT",
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
