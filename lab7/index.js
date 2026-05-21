@@ -105,4 +105,95 @@ class Observable {
   }
 }
 
-export { Observable };
+/**
+ * EventEmitter - система подій для комунікації між сутностями
+ * Дозволяє видавати, слухати та відписуватися від подій
+ */
+class EventEmitter {
+  constructor() {
+    this.events = new Map();
+  }
+
+  /**
+   * Підписується на подію
+   */
+  on(eventName, handler) {
+    if (!this.events.has(eventName)) {
+      this.events.set(eventName, []);
+    }
+    this.events.get(eventName).push(handler);
+
+    // Повертаємо функцію для відписки
+    return () => this.off(eventName, handler);
+  }
+
+  /**
+   * Підписується на подію один раз
+   */
+  once(eventName, handler) {
+    const wrappedHandler = (...args) => {
+      handler(...args);
+      this.off(eventName, wrappedHandler);
+    };
+    return this.on(eventName, wrappedHandler);
+  }
+
+  /**
+   * Видаляє слухача з події
+   */
+  off(eventName, handler) {
+    if (!this.events.has(eventName)) {
+      return;
+    }
+    const handlers = this.events.get(eventName);
+    const index = handlers.indexOf(handler);
+    if (index !== -1) {
+      handlers.splice(index, 1);
+    }
+  }
+
+  /**
+   * Видає подію усім слухачам
+   */
+  emit(eventName, ...args) {
+    if (!this.events.has(eventName)) {
+      return false;
+    }
+    const handlers = this.events.get(eventName);
+    for (const handler of handlers) {
+      try {
+        handler(...args);
+      } catch (err) {
+        console.error(`Error in event handler for ${eventName}:`, err);
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Отримує кількість слухачів для події
+   */
+  listenerCount(eventName) {
+    return this.events.has(eventName) ? this.events.get(eventName).length : 0;
+  }
+
+  /**
+   * Отримує всіх слухачів для події
+   */
+  listeners(eventName) {
+    return this.events.has(eventName) ? [...this.events.get(eventName)] : [];
+  }
+
+  /**
+   * Видаляє всіх слухачів для події або всіх подій
+   */
+  removeAllListeners(eventName) {
+    if (eventName) {
+      this.events.delete(eventName);
+    } else {
+      this.events.clear();
+    }
+  }
+}
+
+export { Observable, EventEmitter };
