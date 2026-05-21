@@ -1,9 +1,5 @@
-/**
- * Lab 9: Logging Decorator with Configurable Log Levels
- * 
- * A decorator-based logging system that wraps functions
- * to log inputs, outputs, and performance metrics
- */
+import fs from 'fs';
+import path from 'path';
 
 /**
  * Log Level Enumeration
@@ -291,4 +287,70 @@ class ConditionalLogger extends Logger {
   }
 }
 
-export { Logger, LogLevel, LogDecorator, ConditionalLogger };
+/**
+ * File Logger
+ * Logs to files
+ */
+class FileLogger extends Logger {
+  constructor(level = LogLevel.INFO, logFile = 'app.log') {
+    super(level);
+    this.logFile = logFile;
+    this.ensureLogFile();
+  }
+
+  /**
+   * Ensure log file exists
+   */
+  ensureLogFile() {
+    const dir = path.dirname(this.logFile);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    if (!fs.existsSync(this.logFile)) {
+      fs.writeFileSync(this.logFile, '');
+    }
+  }
+
+  /**
+   * Write to file
+   */
+  log(level, message, data = {}, formatter = 'default') {
+    if (level < this.level) {
+      return;
+    }
+
+    const logEntry = {
+      timestamp: new Date().toISOString(),
+      level: this._levelToString(level),
+      message,
+      data
+    };
+
+    const format = this.getFormatter(formatter);
+    const formatted = format(logEntry);
+
+    // Write to file
+    fs.appendFileSync(this.logFile, formatted + '\n');
+
+    // Also to console if needed
+    if (this.outputs.includes('console')) {
+      console.log(formatted);
+    }
+  }
+
+  /**
+   * Get log file contents
+   */
+  getLogContents() {
+    return fs.readFileSync(this.logFile, 'utf-8');
+  }
+
+  /**
+   * Clear log file
+   */
+  clearLog() {
+    fs.writeFileSync(this.logFile, '');
+  }
+}
+
+export { Logger, LogLevel, LogDecorator, ConditionalLogger, FileLogger };
