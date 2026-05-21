@@ -196,4 +196,117 @@ class EventEmitter {
   }
 }
 
-export { Observable, EventEmitter };
+/**
+ * Subject - Observable, який також є Observer (можна видавати значення)
+ * Дозволяє множинним спостерігачам реагувати на значення
+ */
+class Subject extends Observable {
+  constructor() {
+    let controller;
+    super((observer) => {
+      controller = observer;
+      return {
+        unsubscribe: () => {
+          controller = null;
+        },
+      };
+    });
+    this.observers = [];
+    this._controller = null;
+  }
+
+  subscribe(observerOrNext, onError, onComplete) {
+    const observer = typeof observerOrNext === 'function'
+      ? { next: observerOrNext, error: onError, complete: onComplete }
+      : observerOrNext;
+
+    this.observers.push(observer);
+
+    return {
+      unsubscribe: () => {
+        const index = this.observers.indexOf(observer);
+        if (index !== -1) {
+          this.observers.splice(index, 1);
+        }
+      },
+    };
+  }
+
+  /**
+   * Видає наступне значення усім спостерігачам
+   */
+  next(value) {
+    for (const observer of this.observers) {
+      try {
+        if (observer.next) {
+          observer.next(value);
+        }
+      } catch (err) {
+        this.error(err);
+      }
+    }
+  }
+
+  /**
+   * Сигналізує про помилку
+   */
+  error(err) {
+    for (const observer of this.observers) {
+      try {
+        if (observer.error) {
+          observer.error(err);
+        }
+      } catch (e) {
+        console.error('Error in observer:', e);
+      }
+    }
+    this.observers = [];
+  }
+
+  /**
+   * Сигналізує про завершення потоку
+   */
+  complete() {
+    for (const observer of this.observers) {
+      try {
+        if (observer.complete) {
+          observer.complete();
+        }
+      } catch (err) {
+        console.error('Error in observer:', err);
+      }
+    }
+    this.observers = [];
+  }
+}
+
+/**
+ * BehaviorSubject - Subject, який зберігає останнє значення
+ * Нові спостерігачі одразу отримують останнє значення
+ */
+class BehaviorSubject extends Subject {
+  constructor(initialValue) {
+    super();
+    this.value = initialValue;
+  }
+
+  subscribe(observerOrNext, onError, onComplete) {
+    const observer = typeof observerOrNext === 'function'
+      ? { next: observerOrNext, error: onError, complete: onComplete }
+      : observerOrNext;
+
+    // Відразу видаємо поточне значення
+    if (observer.next) {
+      observer.next(this.value);
+    }
+
+    return super.subscribe(observer);
+  }
+
+  next(value) {
+    this.value = value;
+    super.next(value);
+  }
+}
+
+export { Observable, EventEmitter, Subject, BehaviorSubject };
