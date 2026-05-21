@@ -232,4 +232,47 @@ class JWTAuth extends AuthStrategy {
   }
 }
 
-export { AuthProxy, AuthStrategy, ApiKeyAuth, JWTAuth };
+/**
+ * OAuth Authentication Strategy
+ * Manages OAuth tokens with refresh capability
+ */
+class OAuthAuth extends AuthStrategy {
+  constructor(accessToken, refreshToken = null, tokenType = 'Bearer') {
+    super();
+    this.accessToken = accessToken;
+    this.refreshToken = refreshToken;
+    this.tokenType = tokenType;
+    this.expiresAt = null;
+    this.refreshCallback = null;
+  }
+
+  setRefreshCallback(callback) {
+    this.refreshCallback = callback;
+  }
+
+  async getAuthHeaders() {
+    if (this.needsRefresh() && this.refreshCallback && this.refreshToken) {
+      const newTokens = await this.refreshCallback(this.refreshToken);
+      this.accessToken = newTokens.accessToken;
+      this.refreshToken = newTokens.refreshToken || this.refreshToken;
+      this.expiresAt = newTokens.expiresAt;
+    }
+    return {
+      'Authorization': `${this.tokenType} ${this.accessToken}`
+    };
+  }
+
+  needsRefresh() {
+    if (!this.expiresAt) return false;
+    const bufferTime = 60000;
+    return Date.now() > (this.expiresAt - bufferTime);
+  }
+
+  setTokens(accessToken, refreshToken = null, expiresAt = null) {
+    this.accessToken = accessToken;
+    if (refreshToken) this.refreshToken = refreshToken;
+    this.expiresAt = expiresAt;
+  }
+}
+
+export { AuthProxy, AuthStrategy, ApiKeyAuth, JWTAuth, OAuthAuth };
