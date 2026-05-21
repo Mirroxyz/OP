@@ -125,4 +125,121 @@ class Logger {
   }
 }
 
-export { Logger, LogLevel };
+/**
+ * Log Decorator
+ * Wraps functions to log their inputs and outputs
+ */
+class LogDecorator {
+  constructor(logger) {
+    this.logger = logger;
+  }
+
+  /**
+   * Decorate function with logging
+   */
+  decorate(fn, options = {}) {
+    const {
+      level = LogLevel.INFO,
+      name = fn.name || 'anonymous',
+      logArgs = true,
+      logReturn = true,
+      logErrors = true,
+      formatter = 'default'
+    } = options;
+
+    // Check if async function
+    if (fn.constructor.name === 'AsyncFunction') {
+      return this._decorateAsync(fn, {
+        level,
+        name,
+        logArgs,
+        logReturn,
+        logErrors,
+        formatter
+      });
+    } else {
+      return this._decorateSync(fn, {
+        level,
+        name,
+        logArgs,
+        logReturn,
+        logErrors,
+        formatter
+      });
+    }
+  }
+
+  /**
+   * Decorate synchronous function
+   */
+  _decorateSync(fn, options) {
+    const { level, name, logArgs, logReturn, logErrors, formatter } = options;
+    const logger = this.logger;
+
+    return function(...args) {
+      if (logArgs) {
+        logger.log(level, `Calling function: ${name}`, {
+          args: args.length <= 3 ? args : `[${args.length} arguments]`
+        }, formatter);
+      }
+
+      try {
+        const result = fn.apply(this, args);
+
+        if (logReturn) {
+          logger.log(level, `Function ${name} completed`, {
+            returnValue: typeof result === 'object' ? JSON.stringify(result) : result
+          }, formatter);
+        }
+
+        return result;
+      } catch (error) {
+        if (logErrors) {
+          logger.log(LogLevel.ERROR, `Function ${name} threw error: ${error.message}`, {
+            error: error.message,
+            stack: error.stack
+          }, formatter);
+        }
+        throw error;
+      }
+    };
+  }
+
+  /**
+   * Decorate asynchronous function
+   */
+  _decorateAsync(fn, options) {
+    const { level, name, logArgs, logReturn, logErrors, formatter } = options;
+    const logger = this.logger;
+
+    return async function(...args) {
+      if (logArgs) {
+        logger.log(level, `Calling async function: ${name}`, {
+          args: args.length <= 3 ? args : `[${args.length} arguments]`
+        }, formatter);
+      }
+
+      try {
+        const result = await fn.apply(this, args);
+
+        if (logReturn) {
+          logger.log(level, `Async function ${name} completed`, {
+            returnValue: typeof result === 'object' ? JSON.stringify(result) : result
+          }, formatter);
+        }
+
+        return result;
+      } catch (error) {
+        if (logErrors) {
+          logger.log(LogLevel.ERROR, `Async function ${name} threw error: ${error.message}`, {
+            error: error.message,
+            stack: error.stack
+          }, formatter);
+        }
+        throw error;
+      }
+    };
+  }
+}
+
+export { Logger, LogLevel, LogDecorator };
