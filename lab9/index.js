@@ -19,7 +19,7 @@ class Logger {
   constructor(level = LogLevel.INFO) {
     this.level = level;
     this.formatters = new Map();
-    this.outputs = ['console'];
+    this.outputs = [];
     
     // Register default formatters
     this.registerFormatter('default', this._defaultFormatter.bind(this));
@@ -51,9 +51,7 @@ class Logger {
    * Add output destination
    */
   addOutput(output) {
-    if (!this.outputs.includes(output)) {
-      this.outputs.push(output);
-    }
+    this.outputs.push(output);
   }
 
   /**
@@ -85,11 +83,15 @@ class Logger {
     const formatted = format(logEntry);
 
     // Output to destinations
-    this.outputs.forEach(output => {
-      if (output === 'console') {
-        console.log(formatted);
-      }
-    });
+    if (this.outputs.length === 0) {
+      console.log(formatted);
+    } else {
+      this.outputs.forEach(callback => {
+        if (typeof callback === 'function') {
+          callback(level, message, data, formatted);
+        }
+      });
+    }
   }
 
   /**
@@ -353,4 +355,214 @@ class FileLogger extends Logger {
   }
 }
 
-export { Logger, LogLevel, LogDecorator, ConditionalLogger, FileLogger };
+/**
+ * Performance Logger
+ * Tracks execution time and performance metrics
+ */
+class PerformanceLogger extends Logger {
+  constructor(level = LogLevel.INFO) {
+    super(level);
+    this.metrics = new Map();
+  }
+
+  /**
+   * Get or create metrics for function
+   */
+  getMetrics(functionName) {
+    if (!this.metrics.has(functionName)) {
+      this.metrics.set(functionName, {
+        calls: 0,
+        totalTime: 0,
+        minTime: Infinity,
+        maxTime: -Infinity,
+        errors: 0
+      });
+    }
+    return this.metrics.get(functionName);
+  }
+
+  /**
+   * Log with execution time
+   */
+  logWithTime(level, message, duration, data = {}, formatter = 'default') {
+    const enhancedData = {
+      ...data,
+      executionTime: `${duration.toFixed(2)}ms`
+    };
+
+    this.log(level, message, enhancedData, formatter);
+
+    // Update metrics if function name is in message
+    const match = message.match(/function[:\s]+(\w+)/i);
+    if (match) {
+      const fname = match[1];
+      const metrics = this.getMetrics(fname);
+      metrics.calls++;
+      metrics.totalTime += duration;
+      metrics.minTime = Math.min(metrics.minTime, duration);
+      metrics.maxTime = Math.max(metrics.maxTime, duration);
+    }
+  }
+
+  /**
+   * Record error
+   */
+  recordError(functionName) {
+    const metrics = this.getMetrics(functionName);
+    metrics.errors++;
+  }
+
+  /**
+   * Get performance summary
+   */
+  getPerformanceSummary(functionName = null) {
+    if (functionName) {
+      const metrics = this.metrics.get(functionName);
+      if (!metrics) return null;
+
+      return {
+        functionName,
+        calls: metrics.calls,
+        totalTime: metrics.totalTime.toFixed(2),
+        avgTime: (metrics.totalTime / metrics.calls).toFixed(2),
+        minTime: metrics.minTime.toFixed(2),
+        maxTime: metrics.maxTime.toFixed(2),
+        errors: metrics.errors
+      };
+    }
+
+    // Return all metrics
+    const summaries = {};
+    for (const [name, metrics] of this.metrics) {
+      summaries[name] = {
+        calls: metrics.calls,
+        totalTime: metrics.totalTime.toFixed(2),
+        avgTime: (metrics.totalTime / metrics.calls).toFixed(2),
+        minTime: metrics.minTime.toFixed(2),
+        maxTime: metrics.maxTime.toFixed(2),
+        errors: metrics.errors
+      };
+    }
+    return summaries;
+  }
+
+  /**
+   * Clear metrics
+   */
+  clearMetrics() {
+    this.metrics.clear();
+  }
+}
+
+/**
+ * Performance Decorator
+ * Automatically measures and logs execution time
+ */
+class PerformanceDecorator {
+  constructor(performanceLogger) {
+    this.logger = performanceLogger;
+  }
+
+  /**
+   * Decorate function with performance tracking
+   */
+  decorate(fn, options = {}) {
+    const {
+      level = LogLevel.INFO,
+      name = fn.name || 'anonymous',
+      logThreshold = 0,
+      formatter = 'default'
+    } = options;
+
+    // Check if async function
+    if (fn.constructor.name === 'AsyncFunction') {
+      return this._decorateAsync(fn, {
+        level,
+        name,
+        logThreshold,
+        formatter
+      });
+    } else {
+      return this._decorateSync(fn, {
+        level,
+        name,
+        logThreshold,
+        formatter
+      });
+    }
+  }
+
+  /**
+   * Decorate synchronous function
+   */
+  _decorateSync(fn, options) {
+    const { level, name, logThreshold, formatter } = options;
+    const logger = this.logger;
+
+    return function(...args) {
+      const start = performance.now();
+
+      try {
+        const result = fn.apply(this, args);
+        const duration = performance.now() - start;
+
+        if (duration >= logThreshold) {
+          logger.logWithTime(level, `Function ${name} executed`, duration, {}, formatter);
+        } else {
+          const metrics = logger.getMetrics(name);
+          metrics.calls++;
+          metrics.totalTime += duration;
+          metrics.minTime = Math.min(metrics.minTime, duration);
+          metrics.maxTime = Math.max(metrics.maxTime, duration);
+        }
+
+        return result;
+      } catch (error) {
+        const duration = performance.now() - start;
+        logger.recordError(name);
+        logger.log(LogLevel.ERROR, `Function ${name} failed after ${duration.toFixed(2)}ms`, {
+          error: error.message
+        }, formatter);
+        throw error;
+      }
+    };
+  }
+
+  /**
+   * Decorate asynchronous function
+   */
+  _decorateAsync(fn, options) {
+    const { level, name, logThreshold, formatter } = options;
+    const logger = this.logger;
+
+    return async function(...args) {
+      const start = performance.now();
+
+      try {
+        const result = await fn.apply(this, args);
+        const duration = performance.now() - start;
+
+        if (duration >= logThreshold) {
+          logger.logWithTime(level, `Async function ${name} executed`, duration, {}, formatter);
+        } else {
+          const metrics = logger.getMetrics(name);
+          metrics.calls++;
+          metrics.totalTime += duration;
+          metrics.minTime = Math.min(metrics.minTime, duration);
+          metrics.maxTime = Math.max(metrics.maxTime, duration);
+        }
+
+        return result;
+      } catch (error) {
+        const duration = performance.now() - start;
+        logger.recordError(name);
+        logger.log(LogLevel.ERROR, `Async function ${name} failed after ${duration.toFixed(2)}ms`, {
+          error: error.message
+        }, formatter);
+        throw error;
+      }
+    };
+  }
+}
+
+export { Logger, LogLevel, LogDecorator, ConditionalLogger, FileLogger, PerformanceLogger, PerformanceDecorator };
