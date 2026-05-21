@@ -194,4 +194,42 @@ class ApiKeyAuth extends AuthStrategy {
   }
 }
 
-export { AuthProxy, AuthStrategy, ApiKeyAuth };
+/**
+ * JWT Authentication Strategy
+ * Manages JWT tokens with automatic renewal
+ */
+class JWTAuth extends AuthStrategy {
+  constructor(token, renewalThreshold = 300000) {
+    super();
+    this.token = token;
+    this.tokenTimestamp = Date.now();
+    this.renewalThreshold = renewalThreshold;
+    this.renewalCallback = null;
+  }
+
+  setRenewalCallback(callback) {
+    this.renewalCallback = callback;
+  }
+
+  async getAuthHeaders() {
+    if (this.needsRenewal() && this.renewalCallback) {
+      this.token = await this.renewalCallback();
+      this.tokenTimestamp = Date.now();
+    }
+    return {
+      'Authorization': `Bearer ${this.token}`
+    };
+  }
+
+  needsRenewal() {
+    const age = Date.now() - this.tokenTimestamp;
+    return age > this.renewalThreshold;
+  }
+
+  setToken(token) {
+    this.token = token;
+    this.tokenTimestamp = Date.now();
+  }
+}
+
+export { AuthProxy, AuthStrategy, ApiKeyAuth, JWTAuth };
