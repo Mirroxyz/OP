@@ -275,4 +275,86 @@ class OAuthAuth extends AuthStrategy {
   }
 }
 
-export { AuthProxy, AuthStrategy, ApiKeyAuth, JWTAuth, OAuthAuth };
+/**
+ * Rate Limiter
+ * Prevents excessive API calls
+ */
+class RateLimiter {
+  constructor(maxRequests = 100, windowMs = 60000) {
+    this.maxRequests = maxRequests;
+    this.windowMs = windowMs;
+    this.requests = [];
+  }
+
+  isAllowed() {
+    const now = Date.now();
+    this.requests = this.requests.filter(time => now - time < this.windowMs);
+
+    if (this.requests.length < this.maxRequests) {
+      this.requests.push(now);
+      return true;
+    }
+    return false;
+  }
+
+  getRemainingRequests() {
+    const now = Date.now();
+    this.requests = this.requests.filter(time => now - time < this.windowMs);
+    return Math.max(0, this.maxRequests - this.requests.length);
+  }
+
+  getResetTime() {
+    if (this.requests.length === 0) return null;
+    const oldestRequest = this.requests[0];
+    return oldestRequest + this.windowMs;
+  }
+}
+
+/**
+ * Request Logger
+ * Logs all requests and responses for monitoring
+ */
+class RequestLogger {
+  constructor() {
+    this.logs = [];
+    this.maxLogs = 1000;
+  }
+
+  log(entry) {
+    this.logs.push({
+      timestamp: new Date().toISOString(),
+      ...entry
+    });
+
+    if (this.logs.length > this.maxLogs) {
+      this.logs = this.logs.slice(-this.maxLogs);
+    }
+  }
+
+  getStats() {
+    if (this.logs.length === 0) return null;
+
+    const totalRequests = this.logs.length;
+    const successCount = this.logs.filter(l => l.statusCode >= 200 && l.statusCode < 300).length;
+    const errorCount = this.logs.filter(l => l.statusCode >= 400).length;
+    const avgResponseTime = this.logs.reduce((sum, l) => sum + (l.responseTime || 0), 0) / totalRequests;
+
+    return {
+      totalRequests,
+      successCount,
+      errorCount,
+      successRate: ((successCount / totalRequests) * 100).toFixed(2) + '%',
+      avgResponseTime: avgResponseTime.toFixed(0) + 'ms'
+    };
+  }
+
+  getLogs(limit = 10) {
+    return this.logs.slice(-limit);
+  }
+
+  clearLogs() {
+    this.logs = [];
+  }
+}
+
+export { AuthProxy, AuthStrategy, ApiKeyAuth, JWTAuth, OAuthAuth, RateLimiter, RequestLogger };
