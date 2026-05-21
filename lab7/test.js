@@ -201,6 +201,57 @@ async function runTests() {
     'Observable tap executes side effect without changing value'
   );
 
+  // Test 16: Subject error handling
+  const subject4 = new Subject();
+  let errorMessage = null;
+  subject4.subscribe({
+    next: () => {},
+    error: (err) => { errorMessage = err.message; },
+  });
+  subject4.error(new Error('Test error'));
+  await assert(
+    errorMessage === 'Test error',
+    'Subject error handler receives error'
+  );
+
+  // Test 17: EventEmitter listenerCount
+  const emitter5 = new EventEmitter();
+  emitter5.on('event', () => {});
+  emitter5.on('event', () => {});
+  const count17 = emitter5.listenerCount('event');
+  await assert(count17 === 2, 'EventEmitter listenerCount returns correct value');
+
+  // Test 18: Observable with promise
+  const observable7 = new Observable((observer) => {
+    observer.next(42);
+    observer.complete();
+  });
+
+  const promiseResult = await observable7.toPromise();
+  await assert(promiseResult === 42, 'Observable toPromise resolves with last value');
+
+  // Test 19: BehaviorSubject error propagation
+  const behaviorSubject3 = new BehaviorSubject(1);
+  let behError = null;
+  behaviorSubject3.subscribe({
+    next: () => {},
+    error: (err) => { behError = err.message; },
+  });
+  behaviorSubject3.error(new Error('BehaviorSubject error'));
+  await assert(
+    behError === 'BehaviorSubject error',
+    'BehaviorSubject propagates errors'
+  );
+
+  // Test 20: Performance - many observers
+  const subject5 = new Subject();
+  let totalCalls = 0;
+  for (let i = 0; i < 100; i++) {
+    subject5.subscribe(() => { totalCalls++; });
+  }
+  subject5.next('message');
+  await assert(totalCalls === 100, 'Subject handles 100 concurrent observers');
+
   console.log(`\n✓ Tests passed: ${testsPassed}`);
   console.log(`✗ Tests failed: ${testsFailed}\n`);
 }
