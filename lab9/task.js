@@ -4,7 +4,7 @@ const LEVELS = { DEBUG: 0, INFO: 1, ERROR: 2 };
 const GLOBAL_LEVEL = LEVELS.INFO;
 
 function log(options = {}) {
-    const level = options.level || 'INFO';
+    const targetLevel = options.level || 'INFO';
     const format = options.format || 'text';
     const logFile = options.logFile || null;
 
@@ -12,7 +12,7 @@ function log(options = {}) {
         return function (...args) {
             const startTime = Date.now();
 
-            const writeLog = (msgLevel, msg, data = null) => {
+            const writeLog = (msgLevel, msg, data = null, err = null) => {
                 if (LEVELS[msgLevel] < GLOBAL_LEVEL) return;
 
                 const time = new Date().toISOString();
@@ -20,9 +20,11 @@ function log(options = {}) {
 
                 let logString = '';
                 if (format === 'json') {
-                    logString = JSON.stringify({ time, level: msgLevel, msg, data, execTimeMs: execTime });
+                    logString = JSON.stringify({ time, level: msgLevel, msg, data, error: err ? err.message : null, execTimeMs: execTime });
                 } else {
-                    logString = `[${time}] [${msgLevel}] ${msg} (${execTime}ms) ${data ? JSON.stringify(data) : ''}`;
+                    const dataStr = data ? ` ${JSON.stringify(data)}` : '';
+                    const errStr = err ? ` | Обвал: ${err.message}` : '';
+                    logString = `[${time}] [${msgLevel}] ${msg} (${execTime}ms)${dataStr}${errStr}`;
                 }
 
                 if (logFile) {
@@ -38,22 +40,22 @@ function log(options = {}) {
                 if (result instanceof Promise) {
                     return result
                         .then(res => {
-                            if (level !== 'ERROR') writeLog(level, `Виклик ${fn.name}`, { args, result: res });
+                            if (targetLevel !== 'ERROR') writeLog('INFO', `Async функція ${fn.name} виконана успішно`, { args, result: res });
                             return res;
                         })
                         .catch(err => {
-                            writeLog('ERROR', `Помилка в ${fn.name}: ${err.message}`);
+                            writeLog('ERROR', `Async функція ${fn.name} впала`, { args }, err);
                             throw err;
                         });
                 }
 
-                if (level !== 'ERROR') { 
-                    writeLog(level, `Виклик ${fn.name}`, { args, result });
+                if (targetLevel !== 'ERROR') { 
+                    writeLog('INFO', `Sync функція ${fn.name} виконана успішно`, { args, result });
                 }
                 return result;
 
             } catch (err) {
-                writeLog('ERROR', `Помилка в ${fn.name}: ${err.message}`);
+                writeLog('ERROR', `Sync функція ${fn.name} впала`, { args }, err);
                 throw err;
             }
         };
@@ -64,9 +66,9 @@ const add = log({ level: 'INFO' })(function add(a, b) {
     return a + b;
 });
 
-const divide = log({ level: 'ERROR' })(function divide(a, b) {
-    if (b === 0) throw new Error("Ділення на нуль заборонено");
-    return a / b;
+const unstableOperation = log({ level: 'ERROR' })(function unstableOperation(shouldCrash) {
+    if (shouldCrash) throw new Error("Мережа відсутня");
+    return "Секретні дані";
 });
 
 const fetchData = log({ level: 'INFO', format: 'json', logFile: 'app.log' })(async function fetchData(id) {
@@ -77,11 +79,13 @@ const fetchData = log({ level: 'INFO', format: 'json', logFile: 'app.log' })(asy
 console.log("Тест 1 - звичайний виклик:");
 add(5, 10);
 
-console.log("\nТест 2 - виклик з помилкою:");
+console.log("\nТест 2 - виклик з рівнем ERROR:");
+unstableOperation(false);
+
 try {
-    divide(10, 0);
+    unstableOperation(true);
 } catch (e) {
-    console.log("-> Скрипт продовжив роботу після помилки.");
+    console.log("-> Скрипт перехопив помилку і продовжив роботу.");
 }
 
 console.log("\nТест 3 - асинхронний виклик:");

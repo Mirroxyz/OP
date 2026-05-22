@@ -19,13 +19,24 @@ class EventEmitter {
   }
 
   emit(eventName, data) {
-    if (this.events[eventName]) {
-      this.events[eventName].forEach(listener => listener(data));
+    const listeners = this.events[eventName];
+
+    if (!listeners || listeners.length === 0) {
+      if (eventName === 'error') {
+        console.error("[UNHANDLED ERROR EVENT]:", data);
+      }
+      return;
     }
+
+    listeners.forEach(listener => {
+      try {
+        listener(data);
+      } catch (err) {
+        console.error(`[EventEmitter] Помилка всередині слухача події '${eventName}':`, err.message);
+      }
+    });
   }
 }
-
-const eventBus = new EventEmitter();
 
 class Sensor {
   constructor(id, bus) {
@@ -60,9 +71,15 @@ class Logger {
   }
 }
 
+const eventBus = new EventEmitter();
+
 const sensor1 = new Sensor(24, eventBus);
 const alarm = new AlarmSystem(eventBus);
 const logger = new Logger(eventBus);
+
+eventBus.subscribe('movement', () => {
+  throw new Error("Камера спостереження зависла");
+});
 
 console.log("Ситуація 1 - звичайний рух:");
 sensor1.detectMovement(); 
@@ -70,6 +87,8 @@ sensor1.detectMovement();
 setTimeout(() => {
   console.log("\nСитуація 2 - відключений логер:");
   logger.stopLogging();
-  
   sensor1.detectMovement(); 
+
+  console.log("\nСитуація 3 - неперехоплена помилка:");
+  eventBus.emit('error', "Втрачено зв'язок з головним сервером");
 }, 1000);

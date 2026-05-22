@@ -1,10 +1,11 @@
 class BiDirectionalPriorityQueue {
   constructor() {
     this.queue = []; 
+    this.idCounter = 0;
   }
 
   enqueue(item, priority) {
-    this.queue.push({ item, priority });
+    this.queue.push({ id: this.idCounter++, item, priority });
   }
 
   peek(mode) {
@@ -47,8 +48,7 @@ class BiDirectionalPriorityQueue {
       }
     }
 
-    const removed = this.queue.splice(targetIndex, 1)[0];
-    return removed.item;
+    return this.queue.splice(targetIndex, 1)[0].item;
   }
 }
 
